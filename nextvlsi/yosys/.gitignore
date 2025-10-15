@@ -1,0 +1,6 @@
+*
+!scripts
+!scripts/**
+!src
+!src/**
+!yosys.mk

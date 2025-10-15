@@ -94,7 +94,7 @@ RUNTIME_THREADS := --threads $(VERILATOR_THREADS) --threads-dpi all
 
 USE_FST ?= 0
 TRACING_OPTS := $(if $(filter $(USE_FST),0),\
-	                  --trace,--trace-fst --trace-threads 1)
+	                  --trace,--trace-underscore,--trace-fst --trace-threads 1)
 # TODO: consider renaming +vcdfile in TestDriver.v to +waveformfile (or similar)
 get_waveform_flag = +vcdfile=$(1).$(if $(filter $(USE_FST),0),vcd,fst)
 
@@ -200,17 +200,17 @@ $(model_mk): $(sim_common_files) $(EXTRA_SIM_REQS)
 $(model_mk_debug): $(sim_common_files) $(EXTRA_SIM_REQS)
 	rm -rf $(model_dir_debug)
 	mkdir -p $(model_dir_debug)
-	$(VERILATOR) $(VERILATOR_OPTS) +define+DEBUG $(EXTRA_SIM_SOURCES) -o $(sim_debug) $(TRACING_OPTS) -Mdir $(model_dir_debug)
+	$(VERILATOR) $(VERILATOR_OPTS) +define+DEBUG $(EXTRA_SIM_SOURCES) -o $(sim_debug) $(TRACING_OPTS) -Mdir $(model_dir_debug) --trace-underscore
 	touch $@
 
 #########################################################################################
 # invoke make to make verilator sim rules
 #########################################################################################
 $(sim): $(model_mk) $(dramsim_lib)
-	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir) -f V$(TB).mk
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir) -f V$(TB).mk -j$(nproc)
 
 $(sim_debug): $(model_mk_debug) $(dramsim_lib)
-	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir_debug) -f V$(TB).mk
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir_debug) -f V$(TB).mk -j$(nproc)
 
 #########################################################################################
 # create a verilator vpd rule

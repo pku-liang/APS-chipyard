@@ -22,6 +22,9 @@ class TinyRocketConfig extends Config(
   new freechips.rocketchip.subsystem.WithIncoherentBusTopology ++ // use incoherent bus topology
   new freechips.rocketchip.subsystem.WithNBanks(0) ++             // remove L2$
   new freechips.rocketchip.subsystem.WithNoMemPort ++             // remove backing memory
+  new freechips.rocketchip.rocket.WithL1ICacheRowBits(32) ++
+  new freechips.rocketchip.rocket.WithL1DCacheRowBits(32) ++
+  new freechips.rocketchip.rocket.WithRV32 ++            // set RocketTiles to be 32-bit
   new freechips.rocketchip.rocket.With1TinyCore ++                // single tiny rocket-core
   new chipyard.config.AbstractConfig)
 

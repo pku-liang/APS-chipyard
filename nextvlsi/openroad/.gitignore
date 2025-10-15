@@ -1,0 +1,7 @@
+*
+!pics
+!pics/**
+!scripts/**
+!src
+!src/**
+!openroad.mk
