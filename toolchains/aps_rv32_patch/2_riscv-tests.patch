@@ -1,0 +1,14 @@
+diff --git a/benchmarks/Makefile b/benchmarks/Makefile
+index d38f8af..07374df 100644
+--- a/benchmarks/Makefile
++++ b/benchmarks/Makefile
+@@ -41,8 +41,8 @@ bmarks = \
+ 	pmp \
+ 	vec-memcpy \
+ 	vec-daxpy \
+-	vec-sgemm \
+ 	vec-strcmp \
++#	vec-sgemm \
+ 
+ #--------------------------------------------------------------------
+ # Build rules

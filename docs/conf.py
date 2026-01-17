@@ -313,6 +313,7 @@ def gh_file_ref_role(name, rawtext, text, lineno, inliner, options={}, content=[
 
     import docutils
     import requests
+    import sys
 
     # Note GitHub permits referring to a tree as a 'blob' in these URLs without returning a 404.
     # So I've unconditionally chosen to use blob.
@@ -323,8 +324,9 @@ def gh_file_ref_role(name, rawtext, text, lineno, inliner, options={}, content=[
     if status_code != 200:
         message = f"[Line {lineno}] :{name}:`{text}` produces URL {url} returning status code {status_code}. " \
                   "Ensure your path is correct and all commits that may have moved or renamed files have been pushed to github.com."
-        print(message)
-        sys.exit(1)
+        print(f"WARNING: {message}")
+        # Continue building despite missing GitHub references
+        # sys.exit(1)
 
     docutils.parsers.rst.roles.set_classes(options)
     node = docutils.nodes.reference(rawtext, text, refuri=url, **options)

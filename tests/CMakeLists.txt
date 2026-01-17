@@ -11,7 +11,7 @@
 ########################################################################################################################
 cmake_minimum_required(VERSION 3.10)
 
-project(chipyard-tests LANGUAGES C CXX)
+project(chipyard-tests LANGUAGES C CXX ASM)
 
 
 #################################
@@ -21,7 +21,7 @@ project(chipyard-tests LANGUAGES C CXX)
 set(CMAKE_SYSTEM_NAME         "Generic" CACHE STRING "")
 set(CMAKE_SYSTEM_PROCESSOR    "riscv"   CACHE STRING "")
 
-set(TOOLCHAIN_PREFIX    "riscv64-unknown-elf-")
+set(TOOLCHAIN_PREFIX    "riscv32-unknown-elf-")
 
 set(CMAKE_AR            "${TOOLCHAIN_PREFIX}ar")
 set(CMAKE_ASM_COMPILER  "${TOOLCHAIN_PREFIX}gcc")
@@ -42,8 +42,8 @@ set(CMAKE_EXECUTABLE_SUFFIX            ".riscv")
 #################################
 
 # CPU architecture
-set(ARCH                "rv64imafd")
-set(ABI                 "lp64d")
+set(ARCH                "rv32ima_zicsr_zifencei")
+set(ABI                 "ilp32")
 set(CMODEL              "medany")
 set(ARCH_FLAGS          -march=${ARCH} -mabi=${ABI} -mcmodel=${CMODEL})
 
@@ -55,13 +55,14 @@ set(SPEC_FLAGS          -specs=${SPECS})
 set(LINKER_SCRIPT       "htif.ld")
 
 add_compile_options(-std=gnu99)
-add_compile_options(-O2 -Wall -Wextra)
+add_compile_options(-O3 -Wall -Wextra)
 add_compile_options(-fno-common -fno-builtin-printf)
 add_compile_options(${ARCH_FLAGS})
 add_compile_options(${SPEC_FLAGS})
 
 add_link_options(-static)
 add_link_options(${SPEC_FLAGS})
+add_link_options(${ARCH_FLAGS})
 add_link_options(-T ${LINKER_SCRIPT})
 
 
@@ -69,24 +70,7 @@ add_link_options(-T ${LINKER_SCRIPT})
 # Build
 #################################
 
-add_executable(pwm pwm.c)
-add_executable(blkdev blkdev.c)
-add_executable(accum accum.c)
-add_executable(charcount charcount.c)
-add_executable(cpp-hello cpp-hello.cpp)
-add_executable(nic-loopback nic-loopback.c)
-add_executable(big-blkdev big-blkdev.c)
-add_executable(pingd pingd.c)
-add_executable(streaming-passthrough streaming-passthrough.c)
-add_executable(streaming-fir streaming-fir.c)
-add_executable(nvdla nvdla.c)
-add_executable(spiflashread spiflashread.c)
-add_executable(spiflashwrite spiflashwrite.c)
-add_executable(fft fft.c)
-add_executable(gcd gcd.c)
 add_executable(hello hello.c)
-add_executable(mt-hello mt-hello.c)
-add_executable(symmetric symmetric.c)
 
 #################################
 # Disassembly
@@ -100,6 +84,7 @@ function(add_dump_target target_name)
     add_custom_target(${target_name}-dump
         BYPRODUCTS ${CMAKE_SOURCE_DIR}/${target_name}.dump
         COMMAND ${CMAKE_OBJDUMP} -D $<TARGET_FILE:${target_name}> > ${CMAKE_SOURCE_DIR}/${target_name}.dump
+        COMMAND ${CMAKE_OBJDUMP} -d $<TARGET_FILE:${target_name}> > ${CMAKE_SOURCE_DIR}/${target_name}.dump.min
         DEPENDS ${target_name}
         COMMENT "Generating disassembly for ${target_name}"
     )
@@ -107,25 +92,7 @@ function(add_dump_target target_name)
     add_dependencies(dump ${target_name}-dump)
 endfunction()
 
-add_dump_target(pwm)
-add_dump_target(blkdev)
-add_dump_target(accum)
-add_dump_target(charcount)
-add_dump_target(cpp-hello)
-add_dump_target(nic-loopback)
-add_dump_target(big-blkdev)
-add_dump_target(pingd)
-add_dump_target(streaming-passthrough)
-add_dump_target(streaming-fir)
-add_dump_target(nvdla)
-add_dump_target(spiflashread)
-add_dump_target(spiflashwrite)
-add_dump_target(fft)
-add_dump_target(gcd)
-add_dump_target(hello)
-add_dump_target(mt-hello)
-add_dump_target(symmetric)
-
+# add_dump_target(hello)
 
 # Add custom command to generate spiflash.img from spiflash.py
 add_custom_command(

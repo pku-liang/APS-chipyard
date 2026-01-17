@@ -94,7 +94,7 @@ RUNTIME_THREADS := --threads $(VERILATOR_THREADS) --threads-dpi all
 
 USE_FST ?= 0
 TRACING_OPTS := $(if $(filter $(USE_FST),0),\
-	                  --trace,--trace-fst --trace-threads 1)
+	                  --trace,--trace-underscore,--trace-fst --trace-threads 1)
 # TODO: consider renaming +vcdfile in TestDriver.v to +waveformfile (or similar)
 get_waveform_flag = +vcdfile=$(1).$(if $(filter $(USE_FST),0),vcd,fst)
 
@@ -200,17 +200,17 @@ $(model_mk): $(sim_common_files) $(EXTRA_SIM_REQS)
 $(model_mk_debug): $(sim_common_files) $(EXTRA_SIM_REQS)
 	rm -rf $(model_dir_debug)
 	mkdir -p $(model_dir_debug)
-	$(VERILATOR) $(VERILATOR_OPTS) +define+DEBUG $(EXTRA_SIM_SOURCES) -o $(sim_debug) $(TRACING_OPTS) -Mdir $(model_dir_debug)
+	$(VERILATOR) $(VERILATOR_OPTS) +define+DEBUG $(EXTRA_SIM_SOURCES) -o $(sim_debug) $(TRACING_OPTS) -Mdir $(model_dir_debug) --trace-underscore
 	touch $@
 
 #########################################################################################
 # invoke make to make verilator sim rules
 #########################################################################################
 $(sim): $(model_mk) $(dramsim_lib)
-	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir) -f V$(TB).mk
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir) -f V$(TB).mk -j$(nproc)
 
 $(sim_debug): $(model_mk_debug) $(dramsim_lib)
-	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir_debug) -f V$(TB).mk
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(model_dir_debug) -f V$(TB).mk -j$(nproc)
 
 #########################################################################################
 # create a verilator vpd rule
@@ -233,3 +233,59 @@ clean-sim:
 
 clean-sim-debug:
 	rm -rf $(model_dir_debug) $(sim_debug)
+
+#########################################################################################
+# ApsDMA specific rules
+#########################################################################################
+.PHONY: apsdma apsdma-debug apsdma-clean apsdma-run apsdma-help
+
+# Build ApsDMA simulator (reads config from ../../apsdma_config.json)
+apsdma:
+	@if [ ! -f "$(base_dir)/apsdma_config.json" ]; then \
+		echo "Error: apsdma_config.json not found in $(base_dir)"; \
+		echo "Please create apsdma_config.json in the chipyard root directory"; \
+		exit 1; \
+	fi
+	$(MAKE) CONFIG=ApsDMARocketConfig
+
+# Build ApsDMA debug simulator with waveform support
+apsdma-debug:
+	@if [ ! -f "$(base_dir)/apsdma_config.json" ]; then \
+		echo "Error: apsdma_config.json not found in $(base_dir)"; \
+		echo "Please create apsdma_config.json in the chipyard root directory"; \
+		exit 1; \
+	fi
+	$(MAKE) debug CONFIG=ApsDMARocketConfig
+
+# Clean ApsDMA build artifacts
+apsdma-clean:
+	$(MAKE) clean-sim CONFIG=ApsDMARocketConfig
+	$(MAKE) clean-sim-debug CONFIG=ApsDMARocketConfig
+	rm -rf generated-src/chipyard.harness.TestHarness.ApsDMARocketConfig/
+
+# Run ApsDMA with a test binary (use: make apsdma-run BINARY=path/to/test.riscv)
+apsdma-run: apsdma
+	@if [ -z "$(BINARY)" ]; then \
+		echo "Usage: make apsdma-run BINARY=path/to/test.riscv"; \
+		exit 1; \
+	fi
+	$(MAKE) CONFIG=ApsDMARocketConfig run-binary BINARY=$(BINARY) LOADMEM=1
+
+# ApsDMA help
+apsdma-help:
+	@echo "ApsDMA Makefile Targets:"
+	@echo "  apsdma              - Build ApsDMA simulator (reads apsdma_config.json)"
+	@echo "  apsdma-debug        - Build ApsDMA debug simulator with waveform support"
+	@echo "  apsdma-clean        - Clean ApsDMA build artifacts"
+	@echo "  apsdma-run          - Run ApsDMA simulator with BINARY"
+	@echo "  apsdma-help         - Show this help message"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make apsdma                                     # Build simulator"
+	@echo "  make apsdma-debug                               # Build debug simulator"
+	@echo "  make apsdma-run BINARY=../../tests/hello.riscv  # Run with binary"
+	@echo "  make CONFIG=ApsDMARocketConfig run-binary-debug BINARY=../../tests/hello.riscv LOADMEM=1"
+	@echo ""
+	@echo "Or use the convenience script:"
+	@echo "  ./run_dma.sh [options] [binary]"
+	@echo "  ./run_dma.sh --help"

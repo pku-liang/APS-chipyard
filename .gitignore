@@ -30,3 +30,7 @@ project/project/
 .classpath_cache/
 .vscode/
 tests/build/
+APSDMA*.md
+generators/apsdma/*.md
+nextvlsi/generated-src/*
+generators/apsdma/example/*.md

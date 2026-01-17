@@ -3,3 +3,7 @@
 !Makefile
 !verilator.mk
 !dramsim2_ini
+!run.sh
+!vcd_extractor.py
+!run_dma.sh
+!run_dma_fast.sh
