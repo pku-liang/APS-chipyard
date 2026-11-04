@@ -5,6 +5,7 @@ import argparse
 import shutil
 import os
 import sys
+import re
 
 
 parser = argparse.ArgumentParser(description="")
@@ -49,14 +50,13 @@ def bfs_collect_modules(tree, child_to_ignore = None):
   return modules
 
 def get_modules_in_verilog_file(file):
-  module_names = list()
   with open(file) as f:
-    lines = f.readlines()
-    for line in lines:
-      words = line.split()
-      if len(words) > 0 and words[0] == "module":
-        module_names.append(words[1].replace("(", "").replace(")", "").replace(";", ""))
-  return module_names
+    source = f.read()
+  # HardFloat declarations put the module name on the following line.
+  # Remove comments before matching across whitespace/newlines.
+  source = re.sub(r"/\*.*?\*/|//[^\n]*", " ", source, flags=re.DOTALL)
+  return re.findall(r"^\s*module\s+(?:(?:automatic|static)\s+)?([^\s(;#]+)",
+                    source, flags=re.MULTILINE)
 
 def get_modules_in_filelist(filelist, verilog_module_filename, cc_filelist):
   with open(filelist) as fl:

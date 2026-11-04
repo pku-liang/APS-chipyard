@@ -71,6 +71,7 @@ add_link_options(-T ${LINKER_SCRIPT})
 #################################
 
 add_executable(hello hello.c)
+add_executable(csr test_csr.c)
 
 #################################
 # Disassembly

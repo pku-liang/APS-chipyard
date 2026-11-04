@@ -1,0 +1,18 @@
+backend: rocc
+arch: rv32
+core_count: 1
+top_module: aps_rocc_wrapper
+name: aps_rocc_module
+vsrc:
+  - /tmp/csr_partition_loop.sv
+maxBurstBytes: 128
+nXacts: 2
+csrs:
+  - id: 0x801
+    name: gain_cfg
+    mask: 0xffffffff
+    init: 0x0
+  - id: 0x802
+    name: bias_cfg
+    mask: 0xffffffff
+    init: 0x0

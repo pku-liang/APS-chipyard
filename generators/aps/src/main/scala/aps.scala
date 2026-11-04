@@ -2,11 +2,19 @@ package aps
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.IntParam
 
 import org.chipsalliance.cde.config.{Field, Parameters, Config}
 import freechips.rocketchip.tile._
 import freechips.rocketchip.diplomacy._
+
+case class APSCSRConfig(
+  id: Int,
+  name: String,
+  mask: BigInt,
+  init: BigInt = 0
+) {
+  def toCustomCSR: CustomCSR = CustomCSR(id, mask, Some(init))
+}
 
 case class APSConfig(
   backend: String,
@@ -16,18 +24,26 @@ case class APSConfig(
   name: String,
   vsrc: List[String],
   maxBurstBytes: Int = 256,
-  nXacts: Int = 1
+  nXacts: Int = 1,
+  csrs: List[APSCSRConfig] = Nil
 ) {
   require(maxBurstBytes > 0 && (maxBurstBytes & (maxBurstBytes - 1)) == 0,
     s"maxBurstBytes must be power of 2, got: $maxBurstBytes")
   require(nXacts > 0 && nXacts <= 16,
     s"nXacts must be in range [1, 16], got: $nXacts")
+  require(csrs.map(_.id).distinct.size == csrs.size,
+    s"APS CSR ids must be unique, got: ${csrs.map(_.id)}")
+  require(csrs.map(_.name).distinct.size == csrs.size,
+    s"APS CSR names must be unique, got: ${csrs.map(_.name)}")
+  require(csrs.forall(_.name.matches("[A-Za-z0-9_]+")),
+    s"APS CSR names must contain only letters, digits, and underscores, got: ${csrs.map(_.name)}")
 }
 
 class WithAPSAccel(config: APSConfig) extends Config((site, here, up) => {
   case BuildRoCC => up(BuildRoCC) ++ Seq(
     (p:Parameters) => {
-      val rocc = LazyModule(new APSBlackbox(OpcodeSet.all, Nil, config)(p))
+      val apsCSRs = config.csrs.map(_.toCustomCSR)
+      val rocc = LazyModule(new APSBlackbox(OpcodeSet.all, apsCSRs, config)(p))
       rocc
     }
   )
@@ -66,6 +82,7 @@ class RoCCCoreIOForAPS(val nRoCCCSRs: Int = 0)(implicit p: Parameters) extends C
 
 class APSBlackbox(opcodes: OpcodeSet, csrList: Seq[CustomCSR], config: APSConfig)(implicit p: Parameters)
     extends LazyRoCC(opcodes, 0, false, csrList) {
+  require(config.nXacts >= 2, s"APS wrapper requires at least 2 TileLink source IDs, got ${config.nXacts}")
 
   // Override tldmaNode with TileLink client node for DMA operations
   // This node will be connected to tlMasterXbar in HasLazyRoCC trait
@@ -85,64 +102,34 @@ class APSBlackboxModuleImp(outer: APSBlackbox, config: APSConfig)(implicit p: Pa
     with RequireSyncReset
     with HasCoreParameters {
 
-
   // Get TileLink edge and bundle from tldmaNode
   val (tl, edge) = outer.atlNode.out(0)
 
   // TileLink parameters
   val tlParams = tl.params
-  val beatBytes = edge.manager.beatBytes
-  val addressBits = tlParams.addressBits
-  val dataBits = tlParams.dataBits
-  val sourceBits = tlParams.sourceBits
-  val sinkBits = tlParams.sinkBits
+  val apsWrapper = Module(new ApsRoccWrapper(
+    tlParams = tlParams,
+    mainVsrc = config.vsrc,
+    topModuleName = config.top_module,
+    csrNames = config.csrs.map(_.name),
+    nRoCCCSRs = outer.roccCSRs.size)(p))
 
-  val blackbox = {
-    val roccIo = io
-    Module(
-      new BlackBox() with HasBlackBoxPath {
-        val io = IO( new Bundle {
-                      val clock = Input(Clock())
-                      val reset = Input(Reset())
-                      val rocc = new RoCCCoreIOForAPS(outer.roccCSRs.size)
-                      val dma = new ApsDMABlackBoxIO(tlParams)(p)
-                    })
-
-        override def desiredName: String = config.top_module
-
-        val chipyardDir = System.getProperty("user.dir")
-        config.vsrc.foreach { file =>
-          val absolutePath = if (new java.io.File(file).isAbsolute) {
-            file
-          } else {
-            s"$chipyardDir/$file"
-          }
-          addPath(absolutePath)
-        }
-      }
-    )
-  }
-
-  blackbox.io.clock := clock
-  blackbox.io.reset := reset
-
-  blackbox.io.rocc.cmd <> io.cmd
-  io.resp <> blackbox.io.rocc.resp
-  io.mem <> blackbox.io.rocc.mem
-  io.busy := blackbox.io.rocc.busy
-  io.csrs <> blackbox.io.rocc.csrs
+  apsWrapper.io.rocc.cmd <> io.cmd
+  io.resp <> apsWrapper.io.rocc.resp
+  io.mem <> apsWrapper.io.rocc.mem
+  io.busy := apsWrapper.io.rocc.busy
+  io.csrs <> apsWrapper.io.rocc.csrs
 
   // ========================================
   // TileLink DMA Interface Connection
   // ========================================
-  // Connect TileLink A/D channels to BlackBox
-  // The BlackBox can issue DMA requests through this interface
+  // Connect TileLink A/D channels to wrapper
 
   // A channel: Requests from accelerator to memory
-  tl.a <> blackbox.io.dma.tl_a
+  tl.a <> apsWrapper.io.tlA
 
   // D channel: Responses from memory to accelerator
-  blackbox.io.dma.tl_d <> tl.d
+  apsWrapper.io.tlD <> tl.d
 
   // Tie off unused TileLink channels (B, C, E)
   // These are only used for cache coherency, which DMA doesn't need

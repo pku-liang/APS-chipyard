@@ -6,7 +6,7 @@ index 78dc947..d0c4d9b 100644
  
  define libgloss_multilib
  $(eval arch := $(patsubst %/,%,$(dir $(1))))
-+$(eval march := $(if $(findstring _zicsr, $(arch)), $(arch), $(arch)_zicsr)) 
++$(eval march := $(if $(findstring _zicsr, $(arch)), $(arch), $(arch)_zicsr))
  $(eval abi := $(notdir $(1)))
 -$(call libgloss,$(1),_$(arch)_$(abi),-march=$(arch) -mabi=$(abi))
 +$(call libgloss,$(1),_$(arch)_$(abi),-march=$(march) -mabi=$(abi))

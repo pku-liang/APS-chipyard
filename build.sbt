@@ -162,7 +162,8 @@ lazy val chipyard = (project in file("generators/chipyard"))
   .settings(libraryDependencies ++= rocketLibDeps.value)
   .settings(
     libraryDependencies ++= Seq(
-      "org.reflections" % "reflections" % "0.10.2"
+      "org.reflections" % "reflections" % "0.10.2",
+      "org.yaml" % "snakeyaml" % "2.2"
     )
   )
   .settings(commonSettings)
